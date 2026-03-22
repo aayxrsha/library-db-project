@@ -11,6 +11,7 @@
   --accent-strong: #5d3720;
   --ok: #2f6a42;
   --danger: #a32828;
+  --font-mono: 'Courier New', Courier, monospace;
 }
 
 * {
@@ -575,6 +576,61 @@ h3 {
   color: #6f472d;
 }
 
+.btn-danger {
+  background: #9a2f2f;
+  color: #fff;
+}
+
+.btn-danger:hover {
+  background: #832727;
+}
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 1rem;
+}
+
+.grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.table-wrapper {
+  overflow-x: auto;
+  border-radius: 0.9rem;
+  border: 1px solid var(--line);
+}
+
+.card-label {
+  display: inline-block;
+  margin: 0.4rem 0 1rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #9a6a49;
+}
+
+.ornament {
+  display: flex;
+  justify-content: center;
+  margin: 1rem 0 1.6rem;
+  color: #9a6a49;
+}
+
+.empty-icon {
+  font-size: 1.2rem;
+}
+
+.stat-trend {
+  margin-top: 0.2rem;
+  font-size: 0.78rem;
+  color: #7b6656;
+}
+
 .issue-layout {
   display: grid;
   grid-template-columns: 1.2fr 1fr;
@@ -825,6 +881,7 @@ button:hover {
   .issue-layout,
   .members-grid,
   .books-grid,
+  .grid-4,
   .summary-grid {
     grid-template-columns: 1fr;
   }
@@ -848,5 +905,11 @@ button:hover {
 
   .page {
     padding: 0.9rem;
+  }
+}
+
+@media (max-width: 720px) {
+  .grid-2 {
+    grid-template-columns: 1fr;
   }
 }

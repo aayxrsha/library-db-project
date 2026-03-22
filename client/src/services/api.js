@@ -34,6 +34,7 @@ API.interceptors.request.use((config) => {
 
 export const login = (data) => API.post('/auth/login', data);
 export const registerMember = (data) => API.post('/auth/register-member', data);
+export const registerAdmin = (data) => API.post('/auth/register-admin', data);
 export const fetchMyProfile = () => API.get('/auth/me');
 
 export const fetchMemberBooks = () => API.get('/member/books');
@@ -54,4 +55,13 @@ export const returnBook = (data) => API.post('/issues/return', data);
 export const fetchStats = () => API.get('/dashboard/stats');
 export const fetchBooks = () => API.get('/books');
 export const fetchMembers = () => API.get('/members');
+export const fetchMemberDetails = (memberId) => API.get(`/members/${memberId}/details`);
 export const fetchIssueHistory = () => API.get('/issues/history');
+export const fetchAdminOverview = () => API.get('/admin/overview');
+
+// Aliases used by redesigned pages.
+export const getBooks = () => API.get('/books');
+export const getMembers = () => API.get('/members');
+export const getIssues = () => API.get('/issues/history');
+export const addBook = (data) => API.post('/books', data);
+export const deleteBook = (bookId) => API.delete(`/books/${bookId}`);

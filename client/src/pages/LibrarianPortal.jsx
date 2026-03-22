@@ -147,6 +147,7 @@ function LibrarianPortal() {
             <tr>
               <th>Request ID</th>
               <th>Member</th>
+              <th>Member ID</th>
               <th>Book ID</th>
               <th>Status</th>
               <th>Action</th>
@@ -155,13 +156,14 @@ function LibrarianPortal() {
           <tbody>
             {filteredRequests.length === 0 ? (
               <tr>
-                <td colSpan="5">No requests available.</td>
+                <td colSpan="6">No requests available.</td>
               </tr>
             ) : (
               filteredRequests.map((item) => (
                 <tr key={item.request_id}>
                   <td>{item.request_id}</td>
                   <td>{item.member_name}</td>
+                  <td>{item.member_ref_id || '-'}</td>
                   <td>{item.book_id}</td>
                   <td>
                     <span className={`badge ${item.status === 'pending' ? 'badge-issued' : 'badge-available'}`}>

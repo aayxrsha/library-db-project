@@ -3,7 +3,7 @@ const router = express.Router();
 const librarianController = require('../controllers/librarianController');
 const { authenticateToken, requireRole } = require('../middleware/authMiddleware');
 
-router.use(authenticateToken, requireRole('librarian'));
+router.use(authenticateToken, requireRole('librarian', 'admin'));
 
 router.get('/requests', librarianController.listRequests);
 router.post('/requests/:requestId/issue', librarianController.issueRequestedBook);

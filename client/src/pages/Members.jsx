@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { fetchMembers } from '../services/api';
+import { fetchMemberDetails, fetchMembers } from '../services/api';
 
 const AVATAR_COLORS = ['#FF6F00', '#3949AB', '#2E7D32', '#BF360C', '#6A1B9A', '#00838F'];
 
@@ -15,6 +15,8 @@ function Members() {
   const [members, setMembers] = useState([]);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all');
+  const [selectedMember, setSelectedMember] = useState(null);
+  const [selectedDetails, setSelectedDetails] = useState(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -54,6 +56,19 @@ function Members() {
   const totalMembers = members.length;
   const students = members.filter((member) => member.type.toLowerCase() === 'student').length;
   const teachers = members.filter((member) => member.type.toLowerCase() === 'teacher').length;
+
+  const handleView = async (member) => {
+    setError('');
+    setSelectedMember(member);
+    setSelectedDetails(null);
+
+    try {
+      const res = await fetchMemberDetails(member.id);
+      setSelectedDetails(res.data);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to load member details');
+    }
+  };
 
   return (
     <section className="page slide-up">
@@ -109,12 +124,101 @@ function Members() {
               </div>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <button className="btn btn-sm btn-outline" style={{ marginBottom: 6, display: 'block' }}>View</button>
+              <button
+                className="btn btn-sm btn-outline"
+                style={{ marginBottom: 6, display: 'block' }}
+                onClick={() => handleView(member)}
+              >
+                View
+              </button>
               <div style={{ fontSize: 10, color: '#A8A29E' }}>Since {member.joined}</div>
             </div>
           </div>
         ))}
       </div>
+
+      {selectedMember && (
+        <div className="card" style={{ marginTop: 18 }}>
+          <div className="card-header">
+            <span className="card-title">
+              Member Details: {selectedMember.name} ({selectedMember.id})
+            </span>
+          </div>
+          <div className="card-body">
+            {!selectedDetails ? (
+              <p className="helper-text">Loading member details...</p>
+            ) : (
+              <>
+                <h4 style={{ margin: '8px 0 10px' }}>Currently Borrowed Books</h4>
+                <div className="table-wrap" style={{ marginBottom: 14 }}>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Issue ID</th>
+                        <th>Book ID</th>
+                        <th>Book Title</th>
+                        <th>Issue Date</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedDetails.currentlyBorrowed?.length ? (
+                        selectedDetails.currentlyBorrowed.map((row) => (
+                          <tr key={row.issue_id}>
+                            <td>{row.issue_id}</td>
+                            <td>{row.book_id}</td>
+                            <td>{row.book_title || '-'}</td>
+                            <td>{row.issue_date ? new Date(row.issue_date).toLocaleDateString() : '-'}</td>
+                            <td>{row.status || '-'}</td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan="5">No currently borrowed books.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                <h4 style={{ margin: '8px 0 10px' }}>Borrowing History</h4>
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Issue ID</th>
+                        <th>Book ID</th>
+                        <th>Book Title</th>
+                        <th>Issue Date</th>
+                        <th>Return Date</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedDetails.history?.length ? (
+                        selectedDetails.history.map((row) => (
+                          <tr key={`${row.issue_id}-${row.book_id}`}>
+                            <td>{row.issue_id}</td>
+                            <td>{row.book_id}</td>
+                            <td>{row.book_title || '-'}</td>
+                            <td>{row.issue_date ? new Date(row.issue_date).toLocaleDateString() : '-'}</td>
+                            <td>{row.return_date ? new Date(row.return_date).toLocaleDateString() : '-'}</td>
+                            <td>{row.status || '-'}</td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan="6">No history found.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {filtered.length === 0 && (
         <div className="empty-state">

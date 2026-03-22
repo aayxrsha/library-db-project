@@ -1,196 +1,178 @@
-import { useState } from 'react';
-import { getStoredAuth, issueBook } from '../services/api';
+import React, { useState, useEffect } from 'react';
+import { issueBook, getBooks, getMembers, getStoredAuth } from '../services/api';
+import Alert from '../components/Alert';
 
-const RECENT_ISSUES = [
-  { book: 'Wings of Fire', member: 'Ramesh Kumar', id: 'M-1042', date: 'Today, 10:32 AM' },
-  { book: 'Godan', member: 'Sunita Devi', id: 'M-0762', date: 'Today, 9:14 AM' },
-  { book: 'The White Tiger', member: 'Arvind Singh', id: 'M-0334', date: 'Yesterday' }
-];
+function getMemberName(member) {
+  return member?.name || member?.full_name || member?.member_name || 'Member';
+}
 
-function IssueBook() {
-  const auth = getStoredAuth();
-  const defaultEmployee = auth?.user?.user_id || '';
+export default function IssueBook() {
   const [bookId, setBookId] = useState('');
   const [memberId, setMemberId] = useState('');
-  const [dueDate, setDueDate] = useState('');
+  const [books, setBooks] = useState([]);
+  const [members, setMembers] = useState([]);
+  const [alert, setAlert] = useState({ type: 'success', message: '' });
   const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState(null);
 
-  const defaultDue = new Date();
-  defaultDue.setDate(defaultDue.getDate() + 14);
-  const defaultDueStr = defaultDue.toISOString().split('T')[0];
+  useEffect(() => {
+    getBooks().then((r) => setBooks(r.data)).catch(() => {});
+    getMembers().then((r) => setMembers(r.data)).catch(() => {});
+  }, []);
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    if (!bookId || !memberId) {
-      return;
-    }
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!bookId || !memberId) return;
+
+    const auth = getStoredAuth();
+    const employeeId = Number(auth?.user?.user_id || 1);
 
     setLoading(true);
-    setStatus(null);
-
     try {
-      await issueBook({
-        book_id: Number(bookId),
-        member_id: Number(memberId),
-        employee_id: Number(defaultEmployee || 1)
+      await issueBook({ book_id: Number(bookId), member_id: Number(memberId), employee_id: employeeId });
+      const book = books.find((b) => String(b.book_id || b.id) === String(bookId));
+      const member = members.find((m) => String(m.member_id || m.id) === String(memberId));
+      setAlert({
+        type: 'success',
+        message: `"${book?.title || 'Book'}" issued to ${getMemberName(member)} successfully.`
       });
-
-      setStatus({ type: 'success', msg: `Book ${bookId} successfully issued to Member ${memberId}.` });
       setBookId('');
       setMemberId('');
-      setDueDate('');
     } catch (err) {
-      setStatus({
-        type: 'error',
-        msg: err.response?.data?.message || 'Failed to issue book. Please check the IDs and try again.'
-      });
-    } finally {
-      setLoading(false);
+      setAlert({ type: 'error', message: err.response?.data?.message || 'Failed to issue book. Please check availability.' });
     }
+    setLoading(false);
   };
 
+  const selectedBook = books.find((b) => String(b.book_id || b.id) === String(bookId));
+  const selectedMember = members.find((m) => String(m.member_id || m.id) === String(memberId));
+
   return (
-    <section className="page slide-up">
+    <main className="main-content">
       <div className="page-header">
-        <span className="page-tag">Transaction</span>
-        <h1 className="page-title">Issue a Book 📤</h1>
-        <p className="page-desc">Lend a book to a registered library member.</p>
+        <h2>Issue a Book</h2>
+        <p>Lend a book from the catalogue to a member</p>
       </div>
 
-      <div className="issue-layout">
-        <div className="card">
-          <div className="card-header">
-            <span className="card-title">Issue Details</span>
-            <span style={{ fontSize: 12, color: '#78716C' }}>Default: 14-day lending</span>
-          </div>
-          <div className="card-body">
-            {status && (
-              <div className={`alert alert-${status.type}`}>
-                <span>{status.type === 'success' ? '✅' : '❌'}</span>
-                {status.msg}
+      <Alert
+        type={alert.type}
+        message={alert.message}
+        onClose={() => setAlert({ ...alert, message: '' })}
+      />
+
+      <div className="grid-2" style={{ gap: '2rem' }}>
+        <div>
+          <div className="card">
+            <span className="card-label">Issue Details</span>
+            <form onSubmit={handleSubmit}>
+              <div className="form-group">
+                <label className="form-label">Select Book *</label>
+                <select
+                  className="form-input"
+                  value={bookId}
+                  onChange={(e) => setBookId(e.target.value)}
+                  required
+                  style={{ cursor: 'pointer' }}
+                >
+                  <option value="">- Choose a book -</option>
+                  {books.map((b, i) => (
+                    <option
+                      key={i}
+                      value={b.book_id || b.id}
+                      disabled={(b.copies || b.available_copies || 0) <= 0}
+                    >
+                      {b.title} - {b.author}
+                      {(b.copies || b.available_copies || 0) <= 0 ? ' (Unavailable)' : ''}
+                    </option>
+                  ))}
+                </select>
               </div>
-            )}
 
-            {status?.type === 'success' ? (
-              <div style={{ textAlign: 'center', padding: '24px 0' }}>
-                <div className="success-icon">✅</div>
-                <div style={{ fontFamily: 'Fraunces, serif', fontSize: 20, fontWeight: 700, marginBottom: 8 }}>
-                  Book Issued Successfully!
-                </div>
-                <div style={{ fontSize: 14, color: '#78716C', marginBottom: 24 }}>
-                  Print the issue slip for the member&apos;s record.
-                </div>
-                <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
-                  <button className="btn btn-primary" onClick={() => setStatus(null)}>Issue Another</button>
-                  <button className="btn btn-outline">🖨 Print Slip</button>
-                </div>
+              <div className="form-group">
+                <label className="form-label">Select Member *</label>
+                <select
+                  className="form-input"
+                  value={memberId}
+                  onChange={(e) => setMemberId(e.target.value)}
+                  required
+                  style={{ cursor: 'pointer' }}
+                >
+                  <option value="">- Choose a member -</option>
+                  {members.map((m, i) => (
+                    <option key={i} value={m.member_id || m.id}>{getMemberName(m)}</option>
+                  ))}
+                </select>
               </div>
-            ) : (
-              <form onSubmit={handleSubmit}>
-                <div className="form-grid">
-                  <div className="form-group">
-                    <label className="form-label">Book ID *</label>
-                    <input
-                      className="form-input"
-                      placeholder="e.g. B-001"
-                      value={bookId}
-                      onChange={(event) => setBookId(event.target.value)}
-                      required
-                    />
-                    <span className="form-hint">Enter the book&apos;s catalogue ID</span>
-                  </div>
 
-                  <div className="form-group">
-                    <label className="form-label">Member ID *</label>
-                    <input
-                      className="form-input"
-                      placeholder="e.g. M-1042"
-                      value={memberId}
-                      onChange={(event) => setMemberId(event.target.value)}
-                      required
-                    />
-                    <span className="form-hint">Member&apos;s registered library ID</span>
-                  </div>
+              <div className="ornament"><span>o</span></div>
 
-                  <div className="form-group">
-                    <label className="form-label">Issue Date</label>
-                    <input
-                      className="form-input"
-                      type="date"
-                      defaultValue={new Date().toISOString().split('T')[0]}
-                      disabled
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label">Due Date</label>
-                    <input
-                      className="form-input"
-                      type="date"
-                      value={dueDate || defaultDueStr}
-                      onChange={(event) => setDueDate(event.target.value)}
-                    />
-                  </div>
-
-                  <div className="form-group full">
-                    <label className="form-label">Notes (Optional)</label>
-                    <input className="form-input" placeholder="Any special remarks..." />
-                  </div>
-                </div>
-
-                <div style={{ marginTop: 24, display: 'flex', gap: 12 }}>
-                  <button type="submit" className="btn btn-primary" disabled={loading}>
-                    {loading ? <><span className="spinner" /> Processing...</> : '📤 Issue Book'}
-                  </button>
-                  <button type="button" className="btn btn-outline" onClick={() => { setBookId(''); setMemberId(''); }}>
-                    Clear
-                  </button>
-                </div>
-              </form>
-            )}
+              <button
+                type="submit"
+                className="btn btn-primary"
+                disabled={loading || !bookId || !memberId}
+                style={{ width: '100%', justifyContent: 'center' }}
+              >
+                {loading ? 'Processing...' : 'Issue Book'}
+              </button>
+            </form>
           </div>
         </div>
 
-        <div>
-          <div className="card">
-            <div className="card-header">
-              <span className="card-title">Recently Issued</span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {selectedBook && (
+            <div className="card" style={{ borderColor: 'rgba(200,155,78,0.3)' }}>
+              <span className="card-label">Selected Book</span>
+              <h3 style={{ fontSize: '1.4rem', fontWeight: 300, fontStyle: 'italic', color: 'var(--accent-strong)', marginBottom: '0.4rem' }}>
+                {selectedBook.title}
+              </h3>
+              <p style={{ color: 'var(--ink-soft)', fontSize: '0.95rem' }}>{selectedBook.author}</p>
+              {selectedBook.genre && (
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.65rem', background: 'rgba(200,180,154,0.08)', padding: '0.2rem 0.6rem', borderRadius: '999px', color: 'var(--ink-soft)', marginTop: '0.8rem', display: 'inline-block' }}>
+                  {selectedBook.genre}
+                </span>
+              )}
+              <div style={{ marginTop: '1rem', fontFamily: 'var(--font-mono)', fontSize: '0.7rem', color: 'var(--ink-soft)' }}>
+                Copies available: <strong style={{ color: 'var(--accent-strong)' }}>
+                  {selectedBook.copies ?? selectedBook.available_copies ?? '-'}
+                </strong>
+              </div>
             </div>
-            <div className="card-body" style={{ padding: '8px 0' }}>
-              {RECENT_ISSUES.map((recent, index) => (
-                <div
-                  key={index}
-                  style={{
-                    padding: '14px 24px',
-                    borderBottom: index < RECENT_ISSUES.length - 1 ? '1px solid #F5F0EA' : 'none'
-                  }}
-                >
-                  <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 2 }}>{recent.book}</div>
-                  <div style={{ fontSize: 12, color: '#78716C' }}>
-                    {recent.member} · {recent.id}
-                  </div>
-                  <div style={{ fontSize: 11, color: '#A8A29E', marginTop: 3 }}>{recent.date}</div>
-                </div>
-              ))}
-            </div>
-          </div>
+          )}
 
-          <div style={{ marginTop: 16, padding: 18, background: '#FFF8F0', border: '1px solid #FFE0B2', borderRadius: 14 }}>
-            <div style={{ fontWeight: 700, fontSize: 13, color: '#E65100', marginBottom: 6 }}>
-              📋 Lending Policy
+          {selectedMember && (
+            <div className="card">
+              <span className="card-label">Selected Member</span>
+              <h3 style={{ fontSize: '1.3rem', fontWeight: 400, color: 'var(--ink)', marginBottom: '0.4rem' }}>
+                {getMemberName(selectedMember)}
+              </h3>
+              {selectedMember.email && (
+                <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.78rem', color: 'var(--ink-soft)' }}>
+                  {selectedMember.email}
+                </p>
+              )}
             </div>
-            <ul style={{ fontSize: 12, color: '#78716C', paddingLeft: 18, lineHeight: 1.8 }}>
-              <li>Standard lending period: <strong>14 days</strong></li>
-              <li>Maximum books per member: <strong>3</strong></li>
-              <li>Fine for overdue: <strong>₹2 per day</strong></li>
-              <li>Lost book charge: <strong>2× book price</strong></li>
+          )}
+
+          {!selectedBook && !selectedMember && (
+            <div className="card" style={{ borderStyle: 'dashed', opacity: 0.5 }}>
+              <div className="empty-state" style={{ padding: '2rem 1rem' }}>
+                <span className="empty-icon">-&gt;</span>
+                <p>Select a book and member to preview details here</p>
+              </div>
+            </div>
+          )}
+
+          <div className="card" style={{ background: 'rgba(200,155,78,0.05)' }}>
+            <span className="card-label">Issue Policy</span>
+            <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+              {['Standard loan period: 14 days', 'Fine applies after due date', 'Maximum 3 books per member'].map((item, i) => (
+                <li key={i} style={{ fontFamily: 'var(--font-mono)', fontSize: '0.72rem', color: 'var(--ink-soft)', display: 'flex', gap: '0.5rem' }}>
+                  <span style={{ color: 'var(--accent)' }}>o</span> {item}
+                </li>
+              ))}
             </ul>
           </div>
         </div>
       </div>
-    </section>
+    </main>
   );
 }
-
-export default IssueBook;

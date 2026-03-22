@@ -16,6 +16,7 @@ const dashboardRoutes = require('./routes/dashboardRoutes');
 const authRoutes = require('./routes/authRoutes');
 const memberPortalRoutes = require('./routes/memberPortalRoutes');
 const librarianRoutes = require('./routes/librarianRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 const { ensureAuthSchema } = require('./schema/ensureAuthSchema');
 
 app.use('/api/issues', issueRoutes);
@@ -25,6 +26,7 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/member', memberPortalRoutes);
 app.use('/api/librarian', librarianRoutes);
+app.use('/api/admin', adminRoutes);
 
 app.get('/', (req, res) => {
     res.send('Server is working');

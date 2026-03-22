@@ -6,7 +6,8 @@ function ProtectedRoute({ auth, allowedRoles, children }) {
   }
 
   if (allowedRoles && !allowedRoles.includes(auth.user.role)) {
-    return <Navigate to={auth.user.role === 'librarian' ? '/librarian' : '/member'} replace />;
+    const fallback = auth.user.role === 'admin' ? '/admin' : auth.user.role === 'librarian' ? '/librarian' : '/member';
+    return <Navigate to={fallback} replace />;
   }
 
   return children;

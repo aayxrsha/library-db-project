@@ -1,147 +1,222 @@
-import { useEffect, useState } from 'react';
-import { fetchBooks } from '../services/api';
+import React, { useState, useEffect } from 'react';
+import { getBooks, addBook, deleteBook } from '../services/api';
+import Alert from '../components/Alert';
 
-const STATUS_CLASS = {
-  available: 'badge-available',
-  issued: 'badge-issued',
-  overdue: 'badge-overdue'
-};
+const emptyForm = { title: '', author: '', genre: '', published_year: '', copies: 1 };
 
-const COVER_COLORS = ['#FFF3E0', '#E8EAF6', '#E8F5E9', '#FBE9E7', '#F3E5F5', '#E0F2F1', '#FFF8E1', '#FCE4EC'];
-
-function inferStatus(row) {
-  const explicit = String(row.status || row.book_status || '').toLowerCase();
-  if (['available', 'issued', 'overdue'].includes(explicit)) {
-    return explicit;
-  }
-
-  const available = Number(row.available_copies ?? row.available_quantity ?? row.available ?? 0);
-  if (available <= 0) {
-    return 'issued';
-  }
-
-  return 'available';
-}
-
-function getBookTitle(row) {
-  return row.title || row.book_name || row.name || `Book ${row.book_id ?? row.id ?? ''}`;
-}
-
-function getBookAuthor(row) {
-  return row.author || row.author_name || 'Unknown Author';
-}
-
-function getBookCategory(row) {
-  return row.category || row.genre || 'General';
-}
-
-function Books() {
+export default function Books() {
   const [books, setBooks] = useState([]);
-  const [filter, setFilter] = useState('all');
+  const [form, setForm] = useState(emptyForm);
+  const [alert, setAlert] = useState({ type: 'success', message: '' });
   const [search, setSearch] = useState('');
-  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [showForm, setShowForm] = useState(false);
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const res = await fetchBooks();
-        const normalized = (res.data || []).map((row, index) => ({
-          raw: row,
-          id: String(row.book_id || row.id || `B-${index + 1}`),
-          title: getBookTitle(row),
-          author: getBookAuthor(row),
-          category: getBookCategory(row),
-          status: inferStatus(row),
-          copies: Number(row.total_copies ?? row.quantity ?? row.copies ?? 1),
-          cover: COVER_COLORS[index % COVER_COLORS.length],
-          emoji: ['📚', '🔥', '🇮🇳', '🌾', '🏘️', '🚂', '⚖️', '🐯', '📜'][index % 9]
-        }));
-
-        setBooks(normalized);
-      } catch (err) {
-        setError(err.response?.data?.message || 'Failed to load books');
-      }
+  const fetchBooks = async () => {
+    setLoading(true);
+    try {
+      const res = await getBooks();
+      setBooks(res.data);
+    } catch (_) {
+      setAlert({ type: 'error', message: 'Failed to load books.' });
     }
+    setLoading(false);
+  };
 
-    load();
-  }, []);
+  useEffect(() => { fetchBooks(); }, []);
 
-  const filtered = books.filter((book) => {
-    const matchStatus = filter === 'all' || book.status === filter;
-    const q = search.toLowerCase();
-    const matchSearch = book.title.toLowerCase().includes(q) || book.author.toLowerCase().includes(q);
-    return matchStatus && matchSearch;
-  });
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await addBook(form);
+      setAlert({ type: 'success', message: `"${form.title}" added to catalogue.` });
+      setForm(emptyForm);
+      setShowForm(false);
+      fetchBooks();
+    } catch (_) {
+      setAlert({ type: 'error', message: 'Failed to add book.' });
+    }
+  };
+
+  const handleDelete = async (id, title) => {
+    if (!window.confirm(`Remove "${title}" from catalogue?`)) return;
+    try {
+      await deleteBook(id);
+      setAlert({ type: 'success', message: `"${title}" removed.` });
+      fetchBooks();
+    } catch (_) {
+      setAlert({ type: 'error', message: 'Failed to remove book.' });
+    }
+  };
+
+  const filtered = books.filter((b) =>
+    b.title?.toLowerCase().includes(search.toLowerCase()) ||
+    b.author?.toLowerCase().includes(search.toLowerCase()) ||
+    b.genre?.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
-    <section className="page slide-up">
+    <main className="main-content">
       <div className="page-header">
-        <span className="page-tag">Library</span>
-        <div className="page-header-top">
-          <h1 className="page-title">Book Catalogue</h1>
-          <button className="btn btn-primary">+ Add Book</button>
-        </div>
-        <p className="page-desc">Browse and manage the complete library collection.</p>
+        <h2>Book Catalogue</h2>
+        <p>Manage the library's collection</p>
       </div>
 
-      {error && <p className="error-banner">{error}</p>}
+      <Alert
+        type={alert.type}
+        message={alert.message}
+        onClose={() => setAlert({ ...alert, message: '' })}
+      />
 
-      <div className="filter-row">
-        <div className="filter-tabs">
-          {['all', 'available', 'issued', 'overdue'].map((t) => (
-            <button
-              key={t}
-              className={`filter-tab ${filter === t ? 'active' : ''}`}
-              onClick={() => setFilter(t)}
-            >
-              {t.charAt(0).toUpperCase() + t.slice(1)}
-              {t === 'overdue' && <span style={{ marginLeft: 4, color: '#C62828' }}>⚠</span>}
-            </button>
-          ))}
-        </div>
-
-        <div className="search-bar">
-          <span className="search-icon">🔍</span>
+      <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', alignItems: 'center' }}>
+        <div className="search-bar" style={{ flex: 1 }}>
+          <span>⌕</span>
           <input
-            placeholder="Search books, authors..."
+            placeholder="Search by title, author, or genre..."
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
+            onChange={(e) => setSearch(e.target.value)}
           />
         </div>
+        <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
+          {showForm ? 'X Close' : '+ Add Book'}
+        </button>
       </div>
 
-      <div className="books-grid">
-        {filtered.map((book) => (
-          <div className="book-card" key={book.id}>
-            <div className="book-cover" style={{ background: book.cover }}>
-              {book.emoji}
-            </div>
-            <div className="book-card-body">
-              <div className="book-title">{book.title}</div>
-              <div className="book-author">{book.author}</div>
-              <div className="book-meta">
-                <span className="book-category">{book.category}</span>
-                <span className={`badge ${STATUS_CLASS[book.status] || 'badge-available'}`}>
-                  {book.status.charAt(0).toUpperCase() + book.status.slice(1)}
-                </span>
+      {showForm && (
+        <div className="card" style={{ marginBottom: '2rem' }}>
+          <span className="card-label">New Book Entry</span>
+          <form onSubmit={handleSubmit}>
+            <div className="grid-2">
+              <div className="form-group">
+                <label className="form-label">Title *</label>
+                <input
+                  className="form-input"
+                  required
+                  value={form.title}
+                  onChange={(e) => setForm({ ...form, title: e.target.value })}
+                  placeholder="Enter book title"
+                />
               </div>
-              <div style={{ marginTop: 10, fontSize: 11, color: '#78716C' }}>
-                {book.copies} cop{book.copies > 1 ? 'ies' : 'y'} · ID: {book.id}
+              <div className="form-group">
+                <label className="form-label">Author *</label>
+                <input
+                  className="form-input"
+                  required
+                  value={form.author}
+                  onChange={(e) => setForm({ ...form, author: e.target.value })}
+                  placeholder="Author name"
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Genre</label>
+                <input
+                  className="form-input"
+                  value={form.genre}
+                  onChange={(e) => setForm({ ...form, genre: e.target.value })}
+                  placeholder="e.g. Fiction, Science, History"
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Published Year</label>
+                <input
+                  className="form-input"
+                  type="number"
+                  value={form.published_year}
+                  onChange={(e) => setForm({ ...form, published_year: e.target.value })}
+                  placeholder="e.g. 2021"
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Copies Available</label>
+                <input
+                  className="form-input"
+                  type="number"
+                  min="1"
+                  value={form.copies}
+                  onChange={(e) => setForm({ ...form, copies: e.target.value })}
+                />
               </div>
             </div>
-          </div>
-        ))}
-      </div>
-
-      {filtered.length === 0 && (
-        <div className="empty-state">
-          <span className="empty-state-icon">📭</span>
-          <h3>No books found</h3>
-          <p>Try adjusting your search or filter.</p>
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <button type="submit" className="btn btn-primary">Add to Catalogue</button>
+              <button type="button" className="btn btn-outline" onClick={() => setShowForm(false)}>Cancel</button>
+            </div>
+          </form>
         </div>
       )}
-    </section>
+
+      <div className="table-wrapper">
+        {loading ? (
+          <div className="empty-state"><p>Loading catalogue...</p></div>
+        ) : filtered.length === 0 ? (
+          <div className="empty-state">
+            <span className="empty-icon">[]</span>
+            <p>{search ? 'No books match your search' : 'No books in catalogue yet'}</p>
+          </div>
+        ) : (
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Title</th>
+                <th>Author</th>
+                <th>Genre</th>
+                <th>Year</th>
+                <th>Copies</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((book, i) => (
+                <tr key={i}>
+                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem' }}>#{book.book_id || book.id}</td>
+                  <td style={{ fontWeight: 400, color: 'var(--ink)' }}>{book.title}</td>
+                  <td style={{ fontStyle: 'italic' }}>{book.author}</td>
+                  <td>
+                    {book.genre && (
+                      <span
+                        style={{
+                          fontFamily: 'var(--font-mono)',
+                          fontSize: '0.68rem',
+                          background: 'rgba(200,180,154,0.08)',
+                          padding: '0.2rem 0.6rem',
+                          borderRadius: '999px',
+                          color: 'var(--ink-soft)'
+                        }}
+                      >
+                        {book.genre}
+                      </span>
+                    )}
+                  </td>
+                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.78rem' }}>{book.published_year}</td>
+                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.78rem' }}>{book.copies ?? book.available_copies ?? '-'}</td>
+                  <td>
+                    <span className={`badge ${(book.copies || book.available_copies) > 0 ? 'badge-available' : 'badge-issued'}`}>
+                      {(book.copies || book.available_copies) > 0 ? 'Available' : 'All Issued'}
+                    </span>
+                  </td>
+                  <td>
+                    <button
+                      className="btn btn-danger"
+                      style={{ padding: '0.35rem 0.8rem', fontSize: '0.65rem' }}
+                      onClick={() => handleDelete(book.book_id || book.id, book.title)}
+                    >
+                      X
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {!loading && filtered.length > 0 && (
+        <div style={{ marginTop: '1rem', fontFamily: 'var(--font-mono)', fontSize: '0.68rem', color: 'var(--ink-soft)', letterSpacing: '0.1em' }}>
+          Showing {filtered.length} of {books.length} books
+        </div>
+      )}
+    </main>
   );
 }
-
-export default Books;

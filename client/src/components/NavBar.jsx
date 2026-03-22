@@ -5,7 +5,21 @@ function getLinks(auth) {
   if (!auth?.user) {
     return [
       { path: '/login', label: 'Login' },
-      { path: '/register', label: 'Register Member' }
+      { path: '/register', label: 'Register Member' },
+      { path: '/register-admin', label: 'Register Admin' }
+    ];
+  }
+
+  if (auth.user.role === 'admin') {
+    return [
+      { path: '/admin', label: 'Admin Portal' },
+      { path: '/librarian', label: 'Librarian Portal' },
+      { path: '/dashboard', label: 'Dashboard' },
+      { path: '/books', label: 'Books' },
+      { path: '/members', label: 'Members' },
+      { path: '/issue', label: 'Issue Manual' },
+      { path: '/return', label: 'Return Manual' },
+      { path: '/issues', label: 'Issue Log' }
     ];
   }
 
@@ -16,7 +30,8 @@ function getLinks(auth) {
       { path: '/books', label: 'Books' },
       { path: '/members', label: 'Members' },
       { path: '/issue', label: 'Issue Manual' },
-      { path: '/return', label: 'Return Manual' }
+      { path: '/return', label: 'Return Manual' },
+      { path: '/issues', label: 'Issue Log' }
     ];
   }
 

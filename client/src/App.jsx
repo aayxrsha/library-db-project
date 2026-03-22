@@ -4,13 +4,16 @@ import Shell from './components/Shell';
 import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
 import RegisterMember from './pages/RegisterMember';
+import RegisterAdmin from './pages/RegisterAdmin';
 import MemberPortal from './pages/MemberPortal';
 import LibrarianPortal from './pages/LibrarianPortal';
+import AdminPortal from './pages/AdminPortal';
 import Dashboard from './pages/Dashboard';
 import Books from './pages/Books';
 import Members from './pages/Members';
 import IssueBook from './pages/IssueBook';
 import ReturnBook from './pages/ReturnBook';
+import IssueLog from './pages/IssueLog';
 import { getStoredAuth } from './services/api';
 
 function App() {
@@ -21,10 +24,20 @@ function App() {
       <Routes>
         <Route
           path="/"
-          element={<Navigate to={auth?.user?.role === 'librarian' ? '/librarian' : auth?.user?.role === 'member' ? '/member' : '/login'} replace />}
+          element={<Navigate to={auth?.user?.role === 'admin' ? '/admin' : auth?.user?.role === 'librarian' ? '/librarian' : auth?.user?.role === 'member' ? '/member' : '/login'} replace />}
         />
         <Route path="/login" element={<Login onLogin={setAuth} />} />
         <Route path="/register" element={<RegisterMember />} />
+        <Route path="/register-admin" element={<RegisterAdmin />} />
+
+        <Route
+          path="/admin"
+          element={(
+            <ProtectedRoute auth={auth} allowedRoles={['admin']}>
+              <AdminPortal />
+            </ProtectedRoute>
+          )}
+        />
 
         <Route
           path="/member"
@@ -38,7 +51,7 @@ function App() {
         <Route
           path="/librarian"
           element={(
-            <ProtectedRoute auth={auth} allowedRoles={['librarian']}>
+            <ProtectedRoute auth={auth} allowedRoles={['librarian', 'admin']}>
               <LibrarianPortal />
             </ProtectedRoute>
           )}
@@ -63,7 +76,7 @@ function App() {
         <Route
           path="/members"
           element={(
-            <ProtectedRoute auth={auth} allowedRoles={['librarian']}>
+            <ProtectedRoute auth={auth} allowedRoles={['librarian', 'admin']}>
               <Members />
             </ProtectedRoute>
           )}
@@ -71,7 +84,7 @@ function App() {
         <Route
           path="/issue"
           element={(
-            <ProtectedRoute auth={auth} allowedRoles={['librarian']}>
+            <ProtectedRoute auth={auth} allowedRoles={['librarian', 'admin']}>
               <IssueBook />
             </ProtectedRoute>
           )}
@@ -79,8 +92,16 @@ function App() {
         <Route
           path="/return"
           element={(
-            <ProtectedRoute auth={auth} allowedRoles={['librarian']}>
+            <ProtectedRoute auth={auth} allowedRoles={['librarian', 'admin']}>
               <ReturnBook />
+            </ProtectedRoute>
+          )}
+        />
+        <Route
+          path="/issues"
+          element={(
+            <ProtectedRoute auth={auth} allowedRoles={['librarian', 'admin']}>
+              <IssueLog />
             </ProtectedRoute>
           )}
         />
