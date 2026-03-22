@@ -58,9 +58,9 @@ async function ensureAuthSchema() {
         )
     `);
 
-    const librarianEmail = process.env.LIBRARIAN_EMAIL || 'librarian@library.local';
-    const librarianPassword = process.env.LIBRARIAN_PASSWORD || 'admin123';
-    const adminEmail = process.env.ADMIN_EMAIL || 'admin@library.local';
+    const librarianEmail = process.env.LIBRARIAN_EMAIL || 'librarian@library.com';
+    const librarianPassword = process.env.LIBRARIAN_PASSWORD || 'librarian123';
+    const adminEmail = process.env.ADMIN_EMAIL || 'admin@library.com';
     const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
 
     const existing = await query('SELECT user_id FROM library_users WHERE email = ? LIMIT 1', [librarianEmail]);

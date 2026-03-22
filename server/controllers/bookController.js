@@ -13,24 +13,33 @@ function query(sql, params = []) {
     });
 }
 
-exports.getBooks = (req, res) => {
-    const sql = 'SELECT * FROM books LIMIT 200';
+exports.getBooks = async (req, res) => {
+    try {
+        const columns = await query('SHOW COLUMNS FROM books');
+        const names = new Set(columns.map((c) => c.Field));
 
-    db.query(sql, (err, rows) => {
-        if (err) {
-            if (err.code === 'ER_NO_SUCH_TABLE') {
-                return res.status(200).json([]);
-            }
+        let sql = 'SELECT *';
+        if (!names.has('genre') && names.has('category')) {
+            sql += ', category AS genre';
+        }
+        if (!names.has('published_year') && names.has('year')) {
+            sql += ', year AS published_year';
+        }
+        sql += ' FROM books LIMIT 200';
 
-            console.error('Books query error:', err.message);
-            return res.status(500).json({
-                message: 'Failed to fetch books',
-                error: err.message
-            });
+        const rows = await query(sql);
+        return res.status(200).json(rows);
+    } catch (err) {
+        if (err.code === 'ER_NO_SUCH_TABLE') {
+            return res.status(200).json([]);
         }
 
-        return res.status(200).json(rows);
-    });
+        console.error('Books query error:', err.message);
+        return res.status(500).json({
+            message: 'Failed to fetch books',
+            error: err.message
+        });
+    }
 };
 
 exports.addBook = async (req, res) => {
