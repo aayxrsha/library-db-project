@@ -4,7 +4,7 @@ import { login, setStoredAuth } from '../services/api';
 
 function Login({ onLogin }) {
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
@@ -13,7 +13,7 @@ function Login({ onLogin }) {
     setError('');
 
     try {
-      const response = await login({ email, password });
+      const response = await login({ identifier, password });
       const auth = {
         token: response.data.token,
         user: response.data.user
@@ -22,7 +22,13 @@ function Login({ onLogin }) {
       setStoredAuth(auth);
       onLogin(auth);
 
-      navigate(auth.user.role === 'librarian' ? '/librarian' : '/member');
+      if (auth.user.role === 'admin') {
+        navigate('/admin');
+      } else if (auth.user.role === 'librarian') {
+        navigate('/librarian');
+      } else {
+        navigate('/member');
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'Login failed');
     }
@@ -34,12 +40,11 @@ function Login({ onLogin }) {
       <p className="page-subtitle">Sign in as member or librarian.</p>
 
       <form className="form-card" onSubmit={handleSubmit}>
-        <label htmlFor="email">Email</label>
+        <label htmlFor="identifier">Email or Member ID</label>
         <input
-          id="email"
-          type="email"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
+          id="identifier"
+          value={identifier}
+          onChange={(event) => setIdentifier(event.target.value)}
           required
         />
 
@@ -56,7 +61,7 @@ function Login({ onLogin }) {
       </form>
 
       {error && <p className="error-banner">{error}</p>}
-      <p className="helper-text">Default librarian: librarian@library.local / admin123</p>
+      <p className="helper-text">Welcome</p>
     </section>
   );
 }
