@@ -13,6 +13,25 @@ function query(sql, params = []) {
     });
 }
 
+function computeOverdueFine(issueRow) {
+    const issueDate = issueRow.issue_date ? new Date(issueRow.issue_date) : null;
+    const dueDate = issueRow.due_date
+        ? new Date(issueRow.due_date)
+        : (issueDate ? new Date(issueDate.getTime() + (14 * 86400000)) : null);
+
+    if (!dueDate) {
+        return 0;
+    }
+
+    const overdueDays = Math.floor((Date.now() - dueDate.getTime()) / 86400000);
+    if (overdueDays <= 0) {
+        return 0;
+    }
+
+    // Keep this aligned with current lending policy: Rs. 5/day overdue.
+    return overdueDays * 5;
+}
+
 exports.getIssueHistory = (req, res) => {
     const fromIssueRecords = `
         SELECT
@@ -113,7 +132,7 @@ exports.issueBook = async (req, res) => {
     }
 };
 
-exports.returnBook = (req, res) => {
+exports.returnBook = async (req, res) => {
     const { issue_id, record_id } = req.body;
     const issueId = Number(issue_id || record_id);
 
@@ -121,15 +140,88 @@ exports.returnBook = (req, res) => {
         return res.status(400).json({ message: 'issue_id is required' });
     }
 
-    db.query('CALL return_book(?)', [issueId], (err) => {
-        if (err) {
-            console.error('Return book error:', err.message);
-            return res.status(500).json({
-                message: 'Failed to return book',
-                error: err.message
+    try {
+        let fineAmount = 0;
+
+        try {
+            const issueRows = await query(
+                'SELECT issue_id, issue_date, due_date, return_date, fine_amount FROM issues WHERE issue_id = ? LIMIT 1',
+                [issueId]
+            );
+
+            if (issueRows.length > 0) {
+                const issueRow = issueRows[0];
+
+                if (issueRow.return_date) {
+                    return res.status(400).json({ message: 'This issue is already returned' });
+                }
+
+                const storedFine = Number(issueRow.fine_amount || 0);
+                const computedFine = computeOverdueFine(issueRow);
+                fineAmount = Math.max(storedFine, computedFine);
+            }
+        } catch (_) {
+            // Continue for schema variants that may not expose this table/columns.
+        }
+
+        if (fineAmount > 0) {
+            let finePaid = false;
+
+            try {
+                const fineRows = await query(
+                    'SELECT paid FROM fines WHERE issue_id = ? ORDER BY fine_id DESC LIMIT 1',
+                    [issueId]
+                );
+
+                if (fineRows.length > 0) {
+                    finePaid = Number(fineRows[0].paid) === 1;
+                }
+            } catch (_) {
+                finePaid = false;
+            }
+
+            if (!finePaid) {
+                return res.status(409).json({
+                    message: `Fine due: Rs. ${fineAmount}. Ask librarian to mark fine as paid before completing return.`,
+                    fine_amount: fineAmount,
+                    fine_paid: false
+                });
+            }
+        }
+
+        await query('CALL return_book(?)', [issueId]);
+
+        try {
+            const issueRows = await query('SELECT fine_amount FROM issues WHERE issue_id = ? LIMIT 1', [issueId]);
+            if (issueRows.length > 0) {
+                fineAmount = Number(issueRows[0].fine_amount || 0);
+            }
+        } catch (_) {
+            // Ignore schema-specific lookup errors and continue with fallback.
+        }
+
+        if (!fineAmount) {
+            try {
+                const fineRows = await query('SELECT COALESCE(SUM(amount), 0) AS total FROM fines WHERE issue_id = ?', [issueId]);
+                fineAmount = Number(fineRows[0]?.total || 0);
+            } catch (_) {
+                // Ignore schema-specific lookup errors and continue with default message.
+            }
+        }
+
+        if (fineAmount > 0) {
+            return res.status(200).json({
+                message: `Book returned successfully. Fine due: Rs. ${fineAmount}.`,
+                fine_amount: fineAmount
             });
         }
 
-        return res.status(200).json({ message: 'Book returned successfully' });
-    });
+        return res.status(200).json({ message: 'Book returned successfully', fine_amount: 0 });
+    } catch (err) {
+        console.error('Return book error:', err.message);
+        return res.status(500).json({
+            message: 'Failed to return book',
+            error: err.message
+        });
+    }
 };

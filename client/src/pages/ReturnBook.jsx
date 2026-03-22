@@ -20,8 +20,8 @@ export default function ReturnBook() {
 
     setLoading(true);
     try {
-      await returnBook({ issue_id: issueId });
-      setAlert({ type: 'success', message: `Issue #${issueId} returned successfully.` });
+      const res = await returnBook({ issue_id: issueId });
+      setAlert({ type: 'success', message: res.data?.message || `Issue #${issueId} returned successfully.` });
       setIssues((prev) => prev.filter((i) => String(i.issue_id || i.id) !== String(issueId)));
       setIssueId('');
     } catch (err) {
